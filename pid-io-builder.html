@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>P&ID & I/O Builder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#10141b; --panel:#171d27; --panel2:#1e2632; --raised:#26303d;
+    --line:#2e3a49; --line2:#3a4858;
+    --txt:#e7ecf2; --muted:#8d9bab; --faint:#5d6b7b;
+    --canvas:#e9edf1; --grid:#d6dce3; --grid2:#c4ccd6; --draw:#1f2933; --paper:#ffffff;
+    --DI:#3b82f6; --DO:#f59e0b; --AI:#10b981; --AO:#a855f7;
+    --accent:#22d3ee; --accent-d:#0e7c8c; --danger:#f4513b;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{font-family:'Inter',system-ui,sans-serif;background:var(--ink);color:var(--txt);font-size:13px;overflow:hidden}
+  .mono{font-family:'JetBrains Mono',monospace}
+  button{font-family:inherit;cursor:pointer}
+  input,select{font-family:inherit}
+
+  #app{display:flex;flex-direction:column;height:100vh}
+  header{display:flex;align-items:center;gap:14px;padding:0 16px;height:52px;background:var(--panel);border-bottom:1px solid var(--line);flex-shrink:0}
+  .logo{display:flex;align-items:center;gap:9px;font-weight:700}
+  .logo .mark{width:26px;height:26px;border:2px solid var(--accent);border-radius:50%;display:grid;place-items:center;position:relative;flex-shrink:0}
+  .logo .mark::before{content:"";position:absolute;width:100%;height:2px;background:var(--accent)}
+  .logo .mark::after{content:"PT";position:absolute;font:600 8px 'JetBrains Mono';color:var(--accent);top:1px}
+  .logo small{display:block;font-weight:400;font-size:10px;color:var(--muted);letter-spacing:.4px;text-transform:uppercase}
+  #projName{background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:7px 11px;border-radius:7px;font-weight:600;font-size:13px;width:200px}
+  #projName:focus{outline:none;border-color:var(--accent)}
+  .spacer{flex:1}
+  .tabs{display:flex;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:3px}
+  .tab{background:none;border:none;color:var(--muted);padding:6px 16px;border-radius:6px;font-weight:600;font-size:12.5px}
+  .tab.active{background:var(--raised);color:var(--txt)}
+  .btn{background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:8px 13px;border-radius:7px;font-weight:600;font-size:12.5px;display:inline-flex;align-items:center;gap:7px}
+  .btn:hover{border-color:var(--line2);background:var(--raised)}
+  .btn.primary{background:var(--accent-d);border-color:var(--accent);color:#eafdff}
+  .btn.primary:hover{background:var(--accent);color:#06303a}
+  .btn.sm{padding:4px 9px;font-size:11px}
+
+  #body{flex:1;display:flex;min-height:0}
+  .view{display:none;flex:1;min-height:0}
+  .view.active{display:flex}
+
+  /* palette */
+  #palette{width:240px;flex-shrink:0;background:var(--panel);border-right:1px solid var(--line);overflow-y:auto;padding:12px}
+  .pal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+  .pal-head h2{font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin:0;font-weight:700}
+  .pal-tools{display:flex;gap:5px;margin-bottom:12px}
+  .pal-tools .btn{flex:1;justify-content:center;padding:5px;font-size:10.5px}
+  .cat{margin-bottom:13px}
+  .cat-label{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--faint);font-weight:700;margin:0 0 6px 2px}
+  .pal-item{display:flex;align-items:center;gap:9px;padding:6px 8px;border-radius:8px;border:1px solid transparent;margin-bottom:2px;position:relative}
+  .pal-item:hover{background:var(--panel2);border-color:var(--line)}
+  .pal-item .ic{width:32px;height:28px;flex-shrink:0}
+  .pal-item .nm{font-size:11.5px;font-weight:500;line-height:1.2}
+  .pal-item .io-mini{display:flex;gap:3px;margin-top:3px}
+  .io-mini i{width:7px;height:7px;border-radius:2px;display:inline-block}
+  .pal-item .tagp{margin-left:auto;font-size:10px;color:var(--faint);font-weight:600}
+  .pal-item .edit{display:none;position:absolute;right:6px;top:6px;gap:3px}
+  .pal-item:hover .edit{display:flex}
+  .pal-item.custom:hover .tagp{display:none}
+  .mini-x{background:var(--panel);border:1px solid var(--line);border-radius:5px;width:20px;height:20px;display:grid;place-items:center;color:var(--muted);font-size:11px}
+  .mini-x:hover{color:var(--txt);border-color:var(--line2)}
+
+  /* stage */
+  #stage{flex:1;position:relative;min-width:0;display:flex;flex-direction:column}
+  .toolbar{height:42px;flex-shrink:0;display:flex;align-items:center;gap:8px;padding:0 12px;background:var(--panel);border-bottom:1px solid var(--line)}
+  .tool{background:var(--panel2);border:1px solid var(--line);color:var(--txt);width:34px;height:30px;border-radius:7px;display:grid;place-items:center}
+  .tool:hover{background:var(--raised)}
+  .tool.on{background:var(--accent-d);border-color:var(--accent);color:#eafdff}
+  .tool svg{width:16px;height:16px}
+  .hint{font-size:11.5px;color:var(--muted);margin-left:6px}
+  .ledger{display:flex;align-items:center;gap:13px;margin-left:auto}
+  .lg{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600}
+  .lg .dot{width:10px;height:10px;border-radius:3px}
+  .lg .n{font-family:'JetBrains Mono';min-width:14px;text-align:right}
+  .lg .lbl{color:var(--muted);font-weight:500;font-size:11px}
+  #scroll{flex:1;overflow:auto;position:relative}
+  #canvas{display:block;background:var(--canvas)}
+  .node{cursor:grab} .node.dragging{cursor:grabbing} .node text{user-select:none}
+  .sym-stroke{stroke:var(--draw);stroke-width:2;fill:none;stroke-linejoin:round}
+  .sym-fill{fill:var(--paper);stroke:var(--draw);stroke-width:2}
+  .sym-ink{fill:var(--draw)}
+  .tagtext{font:600 12px 'JetBrains Mono';fill:var(--draw);text-anchor:middle}
+  .balloon-tag{font:700 9px 'JetBrains Mono';fill:var(--draw);text-anchor:middle}
+  .wire{stroke:#6b7a8b;stroke-width:2.4;fill:none}
+  .wire.sel{stroke:var(--accent);stroke-width:3}
+  .wire-hit{stroke:transparent;stroke-width:14;fill:none;cursor:pointer}
+  .wire-lbl{font:600 10px 'JetBrains Mono';fill:#46566a}
+  .wire-lbl-bg{fill:var(--canvas)}
+  .fieldbus-badge{font:700 7px 'JetBrains Mono';fill:var(--AO)}
+  .selbox{fill:none;stroke:var(--accent);stroke-width:1.6;stroke-dasharray:5 4}
+  .pending{stroke:var(--accent);stroke-width:2.5}
+  .empty-tip{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;color:#9aa7b5;text-align:center}
+  .empty-tip span{background:rgba(23,29,39,.82);padding:14px 22px;border-radius:12px;border:1px solid var(--line);line-height:1.6}
+
+  /* inspector */
+  #inspector{width:300px;flex-shrink:0;background:var(--panel);border-left:1px solid var(--line);overflow-y:auto}
+  .insp-empty{padding:40px 22px;color:var(--faint);text-align:center;font-size:12.5px;line-height:1.7}
+  .insp-head{padding:16px 16px 12px;border-bottom:1px solid var(--line)}
+  .insp-type{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin-bottom:6px}
+  .tag-edit input{background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:8px 11px;border-radius:7px;font:700 15px 'JetBrains Mono';width:100%;letter-spacing:.5px}
+  .tag-edit input:focus{outline:none;border-color:var(--accent)}
+  .insp-sec{padding:14px 16px;border-bottom:1px solid var(--line)}
+  .insp-sec h3{font-size:10.5px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin:0 0 11px;font-weight:700;display:flex;align-items:center;justify-content:space-between}
+  .field{margin-bottom:10px}
+  .field label{display:block;font-size:11px;color:var(--muted);margin-bottom:4px;font-weight:500}
+  .field input,.field select{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:7px 9px;border-radius:6px;font-size:12.5px}
+  .field input:focus,.field select:focus{outline:none;border-color:var(--accent)}
+  .iorow{display:flex;align-items:center;gap:9px;padding:6px 0}
+  .chip{font:700 9.5px 'JetBrains Mono';padding:2px 6px;border-radius:4px;letter-spacing:.5px;color:#0a0e14;flex-shrink:0;width:26px;text-align:center}
+  .chip.DI{background:var(--DI)} .chip.DO{background:var(--DO)} .chip.AI{background:var(--AI)} .chip.AO{background:var(--AO)}
+  .iorow .sig{font-size:12px}
+  .io-none{color:var(--faint);font-size:12px;font-style:italic}
+  .io-count{font-size:11px;color:var(--faint);font-weight:600}
+  .rotseg{display:flex;gap:5px}
+  .rotseg button{flex:1;background:var(--panel2);border:1px solid var(--line);color:var(--muted);padding:6px;border-radius:6px;font:600 11px 'JetBrains Mono'}
+  .rotseg button.sel{background:var(--accent-d);border-color:var(--accent);color:#eafdff}
+  .del-btn{width:100%;background:rgba(244,81,59,.1);border:1px solid rgba(244,81,59,.4);color:#ff8a78;padding:9px;border-radius:7px;font-weight:600;margin-top:4px}
+  .del-btn:hover{background:rgba(244,81,59,.18)}
+
+  /* schedule */
+  #schedule{flex-direction:column;overflow:auto;padding:24px 28px;background:var(--ink);width:100%}
+  .sch-wrap{max-width:1040px;margin:0 auto;width:100%}
+  .sum-cards{display:grid;grid-template-columns:repeat(6,1fr);gap:11px;margin-bottom:22px}
+  .sum{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:14px 15px;position:relative;overflow:hidden}
+  .sum::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px}
+  .sum.DI::before{background:var(--DI)} .sum.DO::before{background:var(--DO)} .sum.AI::before{background:var(--AI)} .sum.AO::before{background:var(--AO)}
+  .sum.total::before{background:var(--accent)} .sum.cards::before{background:var(--muted)}
+  .sum .v{font:700 28px 'JetBrains Mono';line-height:1}
+  .sum .k{font-size:10.5px;color:var(--muted);margin-top:6px;font-weight:600;letter-spacing:.3px}
+  .sum .sub{font-size:10px;color:var(--faint);margin-top:2px}
+  .panel-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;margin-bottom:20px;overflow:hidden}
+  .pc-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--line)}
+  .pc-head h3{margin:0;font-size:14px;font-weight:700}
+  .pc-head .sub{font-size:11.5px;color:var(--muted)}
+  .hw-ctrls{display:flex;align-items:center;gap:18px;padding:12px 18px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .hw-ctrls .f{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--muted)}
+  .hw-ctrls input{width:54px;background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:6px 8px;border-radius:6px;font:600 12px 'JetBrains Mono'}
+  .hw-ctrls .tag{font:700 9.5px 'JetBrains Mono';padding:2px 6px;border-radius:4px;color:#0a0e14}
+  .hw-ctrls .tag.DI{background:var(--DI)} .hw-ctrls .tag.DO{background:var(--DO)} .hw-ctrls .tag.AI{background:var(--AI)} .hw-ctrls .tag.AO{background:var(--AO)}
+
+  .racks{padding:16px 18px;display:flex;flex-direction:column;gap:16px}
+  .rack{border:1px solid var(--line);border-radius:9px;overflow:hidden}
+  .rack-h{background:var(--panel2);padding:7px 12px;font:700 11px 'JetBrains Mono';color:var(--muted);border-bottom:1px solid var(--line)}
+  .slots{display:flex;flex-wrap:wrap;gap:8px;padding:12px}
+  .card{width:108px;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--panel2)}
+  .card .ch{height:5px} .card.DI .ch{background:var(--DI)} .card.DO .ch{background:var(--DO)} .card.AI .ch{background:var(--AI)} .card.AO .ch{background:var(--AO)}
+  .card .cb{padding:8px 9px}
+  .card .ct{font:700 10px 'JetBrains Mono'}
+  .card .cs{font-size:10px;color:var(--faint);margin-top:2px}
+  .card .bar{height:5px;border-radius:3px;background:var(--line);margin-top:7px;overflow:hidden}
+  .card .bar i{display:block;height:100%}
+  .card.DI .bar i{background:var(--DI)} .card.DO .bar i{background:var(--DO)} .card.AI .bar i{background:var(--AI)} .card.AO .bar i{background:var(--AO)}
+  .card .free{font-size:9.5px;color:var(--faint);margin-top:4px}
+  .empty-slot{width:108px;border:1px dashed var(--line);border-radius:8px;display:grid;place-items:center;color:var(--faint);font:600 10px 'JetBrains Mono';min-height:74px}
+
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  thead th{text-align:left;padding:10px 16px;font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700;border-bottom:1px solid var(--line);background:var(--panel2);position:sticky;top:0}
+  tbody td{padding:8px 16px;border-bottom:1px solid var(--line)}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr:hover{background:var(--panel2)}
+  td .chip{display:inline-block}
+  .addr{font:600 11.5px 'JetBrains Mono';color:var(--accent)}
+  .addr.fb{color:var(--AO)}
+  .sch-empty{padding:60px;text-align:center;color:var(--faint);font-size:13px}
+
+  /* modal */
+  .modal-bg{position:fixed;inset:0;background:rgba(8,11,16,.7);display:none;place-items:center;z-index:50;padding:20px}
+  .modal-bg.show{display:grid}
+  .modal{background:var(--panel);border:1px solid var(--line2);border-radius:14px;width:540px;max-width:100%;max-height:90vh;overflow:auto}
+  .modal-h{padding:18px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+  .modal-h h2{margin:0;font-size:15px}
+  .modal-b{padding:20px}
+  .io-builder-row{display:flex;gap:8px;margin-bottom:8px;align-items:center}
+  .io-builder-row select{width:78px;background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:7px;border-radius:6px}
+  .io-builder-row input{flex:1;background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:7px 9px;border-radius:6px}
+  .io-builder-row button{background:none;border:none;color:var(--danger);font-size:18px;padding:0 6px}
+  .modal-f{padding:16px 20px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:10px}
+
+  ::-webkit-scrollbar{width:11px;height:11px}
+  ::-webkit-scrollbar-thumb{background:var(--line2);border-radius:6px;border:3px solid var(--ink)}
+  ::-webkit-scrollbar-track{background:transparent}
+  @media (max-width:900px){#palette{width:188px}#inspector{width:252px}.sum-cards{grid-template-columns:repeat(3,1fr)}}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="logo"><div class="mark"></div><div>P&amp;ID + I/O Builder<small>process repository</small></div></div>
+    <input id="projName" value="Untitled Project" spellcheck="false">
+    <div class="spacer"></div>
+    <div class="tabs">
+      <button class="tab active" data-view="diagram">Diagram</button>
+      <button class="tab" data-view="schedule">I/O Schedule</button>
+    </div>
+    <button class="btn" id="btnExport">Export ▾</button>
+    <button class="btn" id="btnNew">New</button>
+  </header>
+
+  <div id="body">
+    <div class="view active" id="view-diagram">
+      <aside id="palette">
+        <div class="pal-head"><h2>Equipment library</h2></div>
+        <div class="pal-tools">
+          <button class="btn" id="btnAddCustom">+ Custom</button>
+          <button class="btn" id="btnImportLib">Import</button>
+          <button class="btn" id="btnExportLib">Export</button>
+        </div>
+        <div id="palList"></div>
+      </aside>
+
+      <main id="stage">
+        <div class="toolbar">
+          <button class="tool on" id="toolSelect" title="Select / move">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 3l16 7-7 2-2 7z"/></svg></button>
+          <button class="tool" id="toolConnect" title="Connect (draw pipe)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="19" r="2.4"/><circle cx="19" cy="5" r="2.4"/><path d="M6.7 17.3 17.3 6.7"/></svg></button>
+          <span class="hint" id="toolHint"></span>
+          <div class="ledger" id="ledger"></div>
+        </div>
+        <div id="scroll">
+          <svg id="canvas" width="2600" height="1600" viewBox="0 0 2600 1600">
+            <defs>
+              <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M20 0H0V20" fill="none" stroke="var(--grid)" stroke-width="1"/></pattern>
+              <pattern id="grid2" width="100" height="100" patternUnits="userSpaceOnUse"><rect width="100" height="100" fill="url(#grid)"/><path d="M100 0H0V100" fill="none" stroke="var(--grid2)" stroke-width="1.4"/></pattern>
+            </defs>
+            <rect width="2600" height="1600" fill="url(#grid2)"/>
+            <g id="wires"></g>
+            <g id="nodes"></g>
+          </svg>
+          <div class="empty-tip" id="emptyTip"><span>Your canvas is empty.<br>Pick equipment from the library to start your P&amp;ID.</span></div>
+        </div>
+      </main>
+
+      <aside id="inspector"><div class="insp-empty">Select an item on the canvas to edit its specifications and view its instrumentation.</div></aside>
+    </div>
+
+    <div class="view" id="view-schedule"><div id="schedule"><div class="sch-wrap" id="schWrap"></div></div></div>
+  </div>
+</div>
+
+<!-- custom equipment modal -->
+<div class="modal-bg" id="customModal">
+  <div class="modal">
+    <div class="modal-h"><h2 id="cuTitle">Add custom equipment type</h2><button class="btn sm" id="closeCustom">✕</button></div>
+    <div class="modal-b">
+      <div class="field"><label>Name</label><input id="cuName" placeholder="e.g. Dosing Pump (VSD)"></div>
+      <div style="display:flex;gap:12px">
+        <div class="field" style="flex:1"><label>Tag prefix</label><input id="cuPrefix" class="mono" placeholder="P" maxlength="6"></div>
+        <div class="field" style="flex:2"><label>Symbol</label>
+          <select id="cuSymbol"></select></div>
+      </div>
+      <div class="field"><label>Specification set</label>
+        <select id="cuSpec">
+          <option value="driven">Driven (pump / motor)</option><option value="valve">Valve</option>
+          <option value="cvalve">Control valve</option><option value="xmtr">Transmitter</option>
+          <option value="switch">Switch</option><option value="vessel">Vessel / static</option></select></div>
+      <div class="field"><label>I/O signature</label>
+        <div id="cuIoList"></div>
+        <button class="btn sm" id="cuAddIo" style="margin-top:6px">+ Add I/O point</button></div>
+    </div>
+    <div class="modal-f"><button class="btn" id="cuCancel">Cancel</button><button class="btn primary" id="cuSave">Save to library</button></div>
+  </div>
+</div>
+<input type="file" id="libFile" accept="application/json" style="display:none">
+
+<script>
+/* ===================== DATA MODEL ===================== */
+const IO_TYPES=["DI","DO","AI","AO"];
+const IO_LABEL={DI:"Digital In",DO:"Digital Out",AI:"Analog In",AO:"Analog Out"};
+
+const SPEC_SETS={
+  driven:[{k:"service",l:"Service / description"},{k:"medium",l:"Fluid / medium"},{k:"capacity",l:"Capacity / flow"},{k:"power",l:"Motor power (kW)"},{k:"speed",l:"Speed control",opt:["Fixed (DOL)","Star-Delta","Soft starter","VSD / VFD"]},{k:"material",l:"Material"}],
+  valve:[{k:"service",l:"Service / description"},{k:"size",l:"Line size (DN)"},{k:"vtype",l:"Valve type",opt:["Ball","Butterfly","Gate","Globe","Plug","Knife gate"]},{k:"actuator",l:"Actuator",opt:["Pneumatic","Electric (MOV)","Solenoid","Hydraulic"]},{k:"failpos",l:"Fail position",opt:["Fail Closed","Fail Open","Fail Last"]}],
+  cvalve:[{k:"service",l:"Service / description"},{k:"size",l:"Line size (DN)"},{k:"cv",l:"Cv / Kvs"},{k:"actuator",l:"Actuator",opt:["Pneumatic diaphragm","Pneumatic piston","Electric"]},{k:"failpos",l:"Fail position",opt:["Fail Closed","Fail Open","Fail Last"]},{k:"charac",l:"Characteristic",opt:["Linear","Equal %","Quick opening"]}],
+  xmtr:[{k:"service",l:"Service / description"},{k:"range",l:"Calibrated range"},{k:"output",l:"Output / protocol",opt:["4–20 mA","4–20 mA + HART","Profibus PA","Foundation Fieldbus","Modbus"]},{k:"conn",l:"Process connection"},{k:"mount",l:"Mounting"}],
+  switch:[{k:"service",l:"Service / description"},{k:"setpoint",l:"Setpoint"},{k:"contact",l:"Contact",opt:["NO","NC","SPDT"]},{k:"conn",l:"Process connection"}],
+  vessel:[{k:"service",l:"Service / description"},{k:"capacity",l:"Volume / capacity"},{k:"dp",l:"Design pressure"},{k:"dt",l:"Design temperature"},{k:"material",l:"Material"}],
+};
+
+const BASE_LIBRARY=[
+  {cat:"Rotating & Driven",items:[
+    {key:"pump_dol",name:"Pump (Fixed speed)",prefix:"P",symbol:"pump",spec:"driven",io:[["DO","Start / stop command"],["DI","Run feedback"],["DI","Trip / fault"]]},
+    {key:"pump_vsd",name:"Pump (VSD)",prefix:"P",symbol:"pump",spec:"driven",io:[["DO","Run command"],["AO","Speed reference"],["AI","Speed feedback"],["DI","Run feedback"],["DI","Trip / fault"]]},
+    {key:"recip_pump",name:"Dosing / PD pump",prefix:"P",symbol:"recip",spec:"driven",io:[["DO","Run command"],["AO","Stroke / speed ref"],["DI","Run feedback"],["DI","Trip / fault"]]},
+    {key:"motor",name:"Motor / drive",prefix:"M",symbol:"motor",spec:"driven",io:[["DO","Start / stop command"],["DI","Run feedback"],["DI","Trip / fault"]]},
+    {key:"agitator",name:"Agitator / mixer",prefix:"AG",symbol:"motor",spec:"driven",io:[["DO","Start / stop command"],["DI","Run feedback"],["DI","Trip / fault"]]},
+    {key:"compressor",name:"Compressor",prefix:"K",symbol:"pump",spec:"driven",io:[["DO","Run command"],["DI","Run feedback"],["DI","Trip / fault"]]},
+    {key:"blower",name:"Fan / blower",prefix:"B",symbol:"fan",spec:"driven",io:[["DO","Start / stop command"],["DI","Run feedback"],["DI","Trip / fault"]]},
+  ]},
+  {cat:"Valves",items:[
+    {key:"valve_onoff",name:"On/Off valve",prefix:"XV",symbol:"valve",spec:"valve",io:[["DO","Open command"],["DI","Open limit"],["DI","Closed limit"]]},
+    {key:"valve_control",name:"Control valve",prefix:"FCV",symbol:"cvalve",spec:"cvalve",io:[["AO","Position command"],["AI","Position feedback"]]},
+    {key:"valve_mov",name:"Motorised valve (MOV)",prefix:"HV",symbol:"valve",spec:"valve",io:[["DO","Open command"],["DO","Close command"],["DI","Open limit"],["DI","Closed limit"]]},
+    {key:"valve_3way",name:"3-way valve",prefix:"XV",symbol:"valve3",spec:"valve",io:[["DO","Divert command"],["DI","Position A"],["DI","Position B"]]},
+    {key:"valve_manual",name:"Manual valve",prefix:"HV",symbol:"mvalve",spec:"valve",io:[]},
+    {key:"valve_check",name:"Check valve",prefix:"NRV",symbol:"check",spec:"valve",io:[]},
+    {key:"valve_psv",name:"Relief / safety valve",prefix:"PSV",symbol:"psv",spec:"valve",io:[]},
+  ]},
+  {cat:"Instruments",items:[
+    {key:"ft",name:"Flow transmitter",prefix:"FT",symbol:"flowmeter",spec:"xmtr",io:[["AI","Flow"]]},
+    {key:"pt",name:"Pressure transmitter",prefix:"PT",symbol:"instrument",spec:"xmtr",io:[["AI","Pressure"]]},
+    {key:"lt",name:"Level transmitter",prefix:"LT",symbol:"instrument",spec:"xmtr",io:[["AI","Level"]]},
+    {key:"tt",name:"Temperature transmitter",prefix:"TT",symbol:"instrument",spec:"xmtr",io:[["AI","Temperature"]]},
+    {key:"at",name:"Analyser (pH/cond/…)",prefix:"AT",symbol:"instrument",spec:"xmtr",io:[["AI","Analysis value"]]},
+    {key:"orifice",name:"Orifice / flow element",prefix:"FE",symbol:"orifice",spec:"xmtr",io:[]},
+    {key:"lsh",name:"Level switch",prefix:"LS",symbol:"instrument",spec:"switch",io:[["DI","Level switch"]]},
+    {key:"psh",name:"Pressure switch",prefix:"PS",symbol:"instrument",spec:"switch",io:[["DI","Pressure switch"]]},
+    {key:"fs",name:"Flow switch",prefix:"FS",symbol:"instrument",spec:"switch",io:[["DI","Flow switch"]]},
+  ]},
+  {cat:"Vessels & Static",items:[
+    {key:"tank",name:"Tank",prefix:"T",symbol:"tank",spec:"vessel",io:[]},
+    {key:"vessel",name:"Pressure vessel",prefix:"V",symbol:"vessel",spec:"vessel",io:[]},
+    {key:"reactor",name:"Reactor",prefix:"R",symbol:"reactor",spec:"vessel",io:[]},
+    {key:"silo",name:"Silo / hopper",prefix:"SI",symbol:"silo",spec:"vessel",io:[]},
+    {key:"hx",name:"Heat exchanger",prefix:"E",symbol:"hx",spec:"vessel",io:[]},
+    {key:"column",name:"Column",prefix:"C",symbol:"column",spec:"vessel",io:[]},
+    {key:"filter",name:"Filter / strainer",prefix:"F",symbol:"filter",spec:"vessel",io:[]},
+    {key:"cooltower",name:"Cooling tower",prefix:"CT",symbol:"cooltower",spec:"vessel",io:[["DO","Fan command"],["DI","Fan run"],["DI","Fan trip"]]},
+  ]},
+];
+
+/* ===================== SYMBOLS (centered 0,0) ===================== */
+const SYMBOLS={
+  pump:`<circle class="sym-fill" cx="0" cy="0" r="22"/><path class="sym-ink" d="M-7 -10 L13 0 L-7 10 Z"/><line class="sym-stroke" x1="-22" y1="0" x2="-32" y2="0"/><line class="sym-stroke" x1="22" y1="-8" x2="30" y2="-16"/>`,
+  recip:`<rect class="sym-fill" x="-20" y="-15" width="40" height="30" rx="3"/><circle class="sym-stroke" cx="-3" cy="0" r="8"/><line class="sym-stroke" x1="5" y1="0" x2="16" y2="0"/><line class="sym-stroke" x1="-20" y1="0" x2="-30" y2="0"/><line class="sym-stroke" x1="20" y1="0" x2="30" y2="0"/>`,
+  motor:`<circle class="sym-fill" cx="0" cy="0" r="22"/><text x="0" y="6" style="font:700 20px 'JetBrains Mono';fill:var(--draw);text-anchor:middle">M</text>`,
+  fan:`<circle class="sym-fill" cx="0" cy="0" r="22"/><path class="sym-ink" d="M0 0 Q -4 -16 -14 -12 Q -4 -8 0 0 Z"/><path class="sym-ink" d="M0 0 Q 16 -4 12 -14 Q 8 -4 0 0 Z"/><path class="sym-ink" d="M0 0 Q 4 16 14 12 Q 4 8 0 0 Z"/><path class="sym-ink" d="M0 0 Q -16 4 -12 14 Q -8 4 0 0 Z"/>`,
+  valve:`<path class="sym-fill" d="M-18 -13 L0 0 L-18 13 Z"/><path class="sym-fill" d="M18 -13 L0 0 L18 13 Z"/><line class="sym-stroke" x1="-28" y1="0" x2="-18" y2="0"/><line class="sym-stroke" x1="18" y1="0" x2="28" y2="0"/><rect class="sym-fill" x="-8" y="-26" width="16" height="11"/><line class="sym-stroke" x1="0" y1="-15" x2="0" y2="0"/>`,
+  cvalve:`<path class="sym-fill" d="M-18 -13 L0 0 L-18 13 Z"/><path class="sym-fill" d="M18 -13 L0 0 L18 13 Z"/><line class="sym-stroke" x1="-28" y1="0" x2="-18" y2="0"/><line class="sym-stroke" x1="18" y1="0" x2="28" y2="0"/><line class="sym-stroke" x1="0" y1="0" x2="0" y2="-16"/><path class="sym-fill" d="M-12 -28 Q0 -36 12 -28 L12 -22 L-12 -22 Z"/>`,
+  valve3:`<path class="sym-fill" d="M-18 -13 L0 0 L-18 13 Z"/><path class="sym-fill" d="M18 -13 L0 0 L18 13 Z"/><path class="sym-fill" d="M-13 18 L0 0 L13 18 Z"/><line class="sym-stroke" x1="-28" y1="0" x2="-18" y2="0"/><line class="sym-stroke" x1="18" y1="0" x2="28" y2="0"/><line class="sym-stroke" x1="0" y1="18" x2="0" y2="28"/>`,
+  mvalve:`<path class="sym-fill" d="M-18 -13 L0 0 L-18 13 Z"/><path class="sym-fill" d="M18 -13 L0 0 L18 13 Z"/><line class="sym-stroke" x1="-28" y1="0" x2="-18" y2="0"/><line class="sym-stroke" x1="18" y1="0" x2="28" y2="0"/><line class="sym-stroke" x1="0" y1="0" x2="0" y2="-18"/><line class="sym-stroke" x1="-11" y1="-18" x2="11" y2="-18"/>`,
+  check:`<path class="sym-fill" d="M-18 -13 L0 0 L-18 13 Z"/><path class="sym-fill" d="M18 -13 L0 0 L18 13 Z"/><line class="sym-stroke" x1="-28" y1="0" x2="-18" y2="0"/><line class="sym-stroke" x1="18" y1="0" x2="28" y2="0"/><circle class="sym-ink" cx="0" cy="-9" r="3.5"/>`,
+  psv:`<path class="sym-fill" d="M-16 13 L-16 -7 L0 -1 Z"/><line class="sym-stroke" x1="-16" y1="13" x2="-26" y2="13"/><path class="sym-stroke" d="M0 -1 L0 -10 M-6 -10 L6 -10 M-6 -15 L6 -10 M-6 -10 L6 -15"/><line class="sym-stroke" x1="0" y1="-15" x2="0" y2="-22"/>`,
+  instrument:`<circle class="sym-fill" cx="0" cy="0" r="19"/><line class="sym-stroke" x1="-19" y1="0" x2="19" y2="0"/>`,
+  flowmeter:`<line class="sym-stroke" x1="-30" y1="0" x2="30" y2="0"/><circle class="sym-fill" cx="0" cy="0" r="16"/>`,
+  orifice:`<line class="sym-stroke" x1="-28" y1="0" x2="28" y2="0"/><path class="sym-stroke" d="M-3 -13 L3 -3 M-3 13 L3 3"/>`,
+  tank:`<path class="sym-fill" d="M-24 -14 Q-24 -20 -18 -20 L18 -20 Q24 -20 24 -14 L24 18 Q24 22 20 22 L-20 22 Q-24 22 -24 18 Z"/><line class="sym-stroke" x1="-24" y1="-14" x2="24" y2="-14"/>`,
+  vessel:`<rect class="sym-fill" x="-15" y="-24" width="30" height="48" rx="15"/>`,
+  reactor:`<rect class="sym-fill" x="-16" y="-22" width="32" height="44" rx="14"/><rect class="sym-fill" x="-7" y="-34" width="14" height="9"/><line class="sym-stroke" x1="0" y1="-25" x2="0" y2="6"/><line class="sym-stroke" x1="-7" y1="6" x2="7" y2="6"/>`,
+  silo:`<path class="sym-fill" d="M-18 -22 L18 -22 L18 6 L0 24 L-18 6 Z"/>`,
+  hx:`<rect class="sym-fill" x="-26" y="-16" width="52" height="32" rx="4"/><path class="sym-stroke" d="M-26 0 L-14 0 L-9 -10 L0 10 L9 -10 L14 0 L26 0"/>`,
+  column:`<rect class="sym-fill" x="-13" y="-30" width="26" height="60" rx="13"/><line class="sym-stroke" x1="-13" y1="-12" x2="13" y2="-12"/><line class="sym-stroke" x1="-13" y1="0" x2="13" y2="0"/><line class="sym-stroke" x1="-13" y1="12" x2="13" y2="12"/>`,
+  filter:`<path class="sym-fill" d="M0 -18 L18 0 L0 18 L-18 0 Z"/><path class="sym-stroke" d="M-9 -9 L9 9 M0 -18 L0 18"/><line class="sym-stroke" x1="-28" y1="0" x2="-18" y2="0"/><line class="sym-stroke" x1="18" y1="0" x2="28" y2="0"/>`,
+  cooltower:`<path class="sym-fill" d="M-22 -16 L22 -16 L14 20 L-14 20 Z"/><line class="sym-stroke" x1="-18" y1="-16" x2="-22" y2="-22"/><line class="sym-stroke" x1="18" y1="-16" x2="22" y2="-22"/>`,
+};
+const SYM_BOTTOM={pump:24,recip:18,motor:24,fan:24,valve:16,cvalve:16,valve3:28,mvalve:20,check:16,psv:24,instrument:21,flowmeter:18,orifice:16,tank:24,vessel:26,reactor:24,silo:26,hx:18,column:32,filter:20,cooltower:22};
+
+/* ===================== STATE ===================== */
+let library=JSON.parse(JSON.stringify(BASE_LIBRARY));
+let project={name:"Untitled Project",items:[],wires:[],hw:{DI:16,DO:16,AI:8,AO:8,slotsPerRack:8,spare:20}};
+let ui={selected:null,selectedWire:null,mode:"select",pending:null,editingKey:null};
+const STORE=(typeof window!=="undefined"&&window.storage)?window.storage:null;
+
+function libIndex(){const m={};library.forEach(c=>c.items.forEach(i=>m[i.key]=i));return m;}
+function getType(key){return libIndex()[key];}
+function isCustom(key){return (""+key).startsWith("cu_");}
+
+/* ---------- persistence ---------- */
+let saveTimer=null;
+function scheduleSave(){if(saveTimer)clearTimeout(saveTimer);saveTimer=setTimeout(save,500);}
+async function save(){
+  if(!STORE)return;
+  try{await STORE.set("project:current",JSON.stringify(project),false);}catch(e){}
+  try{
+    const custom=[];
+    library.forEach(c=>{const ci=c.items.filter(i=>isCustom(i.key));if(ci.length)custom.push({cat:c.cat,items:ci});});
+    await STORE.set("library:custom",JSON.stringify(custom),false);
+  }catch(e){}
+}
+async function loadSaved(){
+  if(!STORE)return;
+  try{const cl=await STORE.get("library:custom");if(cl&&cl.value)mergeCustom(JSON.parse(cl.value));}catch(e){}
+  try{const p=await STORE.get("project:current");if(p&&p.value){project=Object.assign({hw:project.hw},JSON.parse(p.value));if(!project.hw)project.hw={DI:16,DO:16,AI:8,AO:8,slotsPerRack:8,spare:20};document.getElementById("projName").value=project.name||"Untitled Project";}}catch(e){}
+}
+function mergeCustom(cats){
+  cats.forEach(cc=>cc.items.forEach(it=>{
+    let cat=library.find(c=>c.cat===cc.cat);
+    if(!cat){cat={cat:cc.cat,items:[]};library.push(cat);}
+    if(!cat.items.some(x=>x.key===it.key))cat.items.push(it);
+  }));
+}
+
+/* ===================== PALETTE ===================== */
+function ioDots(io){return io.map(([t])=>`<i style="background:var(--${t})"></i>`).join("");}
+function renderPalette(){
+  const el=document.getElementById("palList");el.innerHTML="";
+  library.forEach(cat=>{
+    const wrap=document.createElement("div");wrap.className="cat";
+    wrap.innerHTML=`<p class="cat-label">${cat.cat}</p>`;
+    cat.items.forEach(it=>{
+      const row=document.createElement("div");row.className="pal-item"+(isCustom(it.key)?" custom":"");row.dataset.key=it.key;
+      row.innerHTML=`<svg class="ic" viewBox="-34 -36 68 72">${SYMBOLS[it.symbol]||SYMBOLS.instrument}</svg>
+        <div><div class="nm">${it.name}</div><div class="io-mini">${ioDots(it.io)||'<span style="font-size:9px;color:var(--faint)">no I/O</span>'}</div></div>
+        <span class="tagp mono">${it.prefix}</span>
+        ${isCustom(it.key)?`<div class="edit"><button class="mini-x" data-act="edit" title="Edit">✎</button><button class="mini-x" data-act="del" title="Delete">✕</button></div>`:""}`;
+      row.addEventListener("click",e=>{
+        const act=e.target.dataset.act;
+        if(act==="edit"){openCustom(it.key);return;}
+        if(act==="del"){if(confirm(`Remove "${it.name}" from the library?`))deleteCustomType(it.key);return;}
+        addItem(it.key);
+      });
+      wrap.appendChild(row);
+    });
+    el.appendChild(wrap);
+  });
+}
+function deleteCustomType(key){
+  library.forEach(c=>c.items=c.items.filter(i=>i.key!==key));
+  library=library.filter(c=>c.items.length);
+  renderPalette();scheduleSave();
+}
+
+/* ===================== ADD / REMOVE ITEMS ===================== */
+function nextTag(prefix){
+  let max=100;
+  project.items.forEach(it=>{const m=it.tag.match(new RegExp("^"+prefix.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"[-]?(\\d+)$"));if(m)max=Math.max(max,parseInt(m[1]));});
+  return prefix+"-"+(max+1);
+}
+function addItem(key){
+  const t=getType(key);if(!t)return;
+  const n=project.items.length;
+  const item={id:"i"+Date.now().toString(36)+Math.random().toString(36).slice(2,5),key,tag:nextTag(t.prefix),
+    x:160+(n%7)*160,y:130+Math.floor(n/7)*140,rot:0,connection:"Hardwired",specs:Object.assign({},t.defaults||{})};
+  project.items.push(item);ui.selected=item.id;ui.selectedWire=null;
+  renderCanvas();renderInspector();updateLedger();scheduleSave();
+}
+function deleteItem(id){
+  project.items=project.items.filter(i=>i.id!==id);
+  project.wires=project.wires.filter(w=>w.from!==id&&w.to!==id);
+  if(ui.selected===id)ui.selected=null;
+  renderCanvas();renderInspector();updateLedger();scheduleSave();
+}
+
+/* ===================== CANVAS ===================== */
+const NS="http://www.w3.org/2000/svg";
+function orthoPath(a,b){
+  const dx=b.x-a.x,dy=b.y-a.y;
+  if(Math.abs(dx)>=Math.abs(dy)){const mx=a.x+dx/2;return `M${a.x} ${a.y} L${mx} ${a.y} L${mx} ${b.y} L${b.x} ${b.y}`;}
+  const my=a.y+dy/2;return `M${a.x} ${a.y} L${a.x} ${my} L${b.x} ${my} L${b.x} ${b.y}`;
+}
+function renderCanvas(){
+  const nodes=document.getElementById("nodes"),wires=document.getElementById("wires");
+  nodes.innerHTML="";wires.innerHTML="";
+  project.wires.forEach((w,wi)=>{
+    const a=project.items.find(i=>i.id===w.from),b=project.items.find(i=>i.id===w.to);if(!a||!b)return;
+    const d=orthoPath(a,b);
+    const path=document.createElementNS(NS,"path");path.setAttribute("class","wire"+(ui.selectedWire===wi?" sel":""));path.setAttribute("d",d);
+    const hit=document.createElementNS(NS,"path");hit.setAttribute("class","wire-hit");hit.setAttribute("d",d);
+    hit.addEventListener("pointerdown",ev=>{ev.stopPropagation();ui.selectedWire=wi;ui.selected=null;renderCanvas();renderInspector();});
+    wires.appendChild(path);wires.appendChild(hit);
+    if(w.label){
+      const mx=(a.x+b.x)/2,my=(a.y+b.y)/2;
+      const bg=document.createElementNS(NS,"rect");const tw=w.label.length*6.5+8;
+      bg.setAttribute("class","wire-lbl-bg");bg.setAttribute("x",mx-tw/2);bg.setAttribute("y",my-9);bg.setAttribute("width",tw);bg.setAttribute("height",16);bg.setAttribute("rx",3);
+      const tx=document.createElementNS(NS,"text");tx.setAttribute("class","wire-lbl");tx.setAttribute("x",mx);tx.setAttribute("y",my+3);tx.setAttribute("text-anchor","middle");tx.textContent=w.label;
+      wires.appendChild(bg);wires.appendChild(tx);
+    }
+  });
+  project.items.forEach(item=>{
+    const t=getType(item.key);if(!t)return;
+    const g=document.createElementNS(NS,"g");g.setAttribute("class","node");g.setAttribute("transform",`translate(${item.x},${item.y})`);g.dataset.id=item.id;
+    const bottom=SYM_BOTTOM[t.symbol]||22;let inner="";
+    if(ui.selected===item.id)inner+=`<rect class="selbox" x="-36" y="-40" width="72" height="${bottom+60}" rx="8"/>`;
+    if(ui.pending===item.id)inner+=`<circle class="pending" fill="none" cx="0" cy="0" r="34"/>`;
+    inner+=`<g transform="rotate(${item.rot||0})">${SYMBOLS[t.symbol]||SYMBOLS.instrument}</g>`;
+    if(t.symbol==="instrument"||t.symbol==="flowmeter"){
+      inner+=`<text class="balloon-tag" x="0" y="-3">${t.prefix}</text><text class="balloon-tag" x="0" y="11">${item.tag.split("-").pop()}</text>`;
+    }else{
+      inner+=`<text class="tagtext" x="0" y="${bottom+18}">${item.tag}</text>`;
+    }
+    if(item.connection==="Fieldbus")inner+=`<text class="fieldbus-badge" x="${bottom>20?26:22}" y="-${bottom>20?20:14}">FB</text>`;
+    g.innerHTML=inner;nodes.appendChild(g);attachNodeEvents(g,item);
+  });
+  document.getElementById("emptyTip").style.display=project.items.length?"none":"grid";
+}
+function svgPoint(e){
+  const svg=document.getElementById("canvas"),r=svg.getBoundingClientRect();
+  const cx=e.touches?e.touches[0].clientX:e.clientX,cy=e.touches?e.touches[0].clientY:e.clientY;
+  return{x:cx-r.left,y:cy-r.top};
+}
+function attachNodeEvents(g,item){
+  g.addEventListener("pointerdown",e=>{
+    e.preventDefault();e.stopPropagation();
+    if(ui.mode==="connect"){
+      if(ui.pending===null){ui.pending=item.id;renderCanvas();}
+      else if(ui.pending!==item.id){
+        if(!project.wires.some(w=>(w.from===ui.pending&&w.to===item.id)||(w.from===item.id&&w.to===ui.pending)))project.wires.push({from:ui.pending,to:item.id});
+        ui.pending=null;renderCanvas();scheduleSave();
+      }else{ui.pending=null;renderCanvas();}
+      return;
+    }
+    ui.selected=item.id;ui.selectedWire=null;renderInspector();
+    const start=svgPoint(e),ox=item.x,oy=item.y;g.classList.add("dragging");let moved=false;
+    function move(ev){const p=svgPoint(ev);item.x=Math.round((ox+(p.x-start.x))/10)*10;item.y=Math.round((oy+(p.y-start.y))/10)*10;moved=true;renderCanvas();}
+    function up(){g.classList.remove("dragging");window.removeEventListener("pointermove",move);window.removeEventListener("pointerup",up);if(moved){renderCanvas();scheduleSave();}}
+    window.addEventListener("pointermove",move);window.addEventListener("pointerup",up);
+  });
+}
+document.getElementById("canvas").addEventListener("pointerdown",e=>{
+  if(e.target.id==="canvas"||(e.target.tagName==="rect"&&e.target.parentNode.id==="canvas")){
+    ui.selected=null;ui.pending=null;ui.selectedWire=null;renderCanvas();renderInspector();
+  }
+});
+
+/* ===================== INSPECTOR ===================== */
+function renderInspector(){
+  const ins=document.getElementById("inspector");
+  if(ui.selectedWire!==null){renderWireInspector(ins);return;}
+  if(!ui.selected){ins.innerHTML=`<div class="insp-empty">Select an item on the canvas to edit its specifications and view its instrumentation.</div>`;return;}
+  const item=project.items.find(i=>i.id===ui.selected);if(!item){ins.innerHTML="";return;}
+  const t=getType(item.key),fields=SPEC_SETS[t.spec]||[];
+  let specHtml="";
+  fields.forEach(f=>{
+    const v=item.specs[f.k]||"";
+    specHtml+= f.opt
+      ? `<div class="field"><label>${f.l}</label><select data-spec="${f.k}"><option value="">—</option>${f.opt.map(o=>`<option ${o===v?"selected":""}>${o}</option>`).join("")}</select></div>`
+      : `<div class="field"><label>${f.l}</label><input data-spec="${f.k}" value="${(v+"").replace(/"/g,"&quot;")}"></div>`;
+  });
+  const ioHtml=t.io.length
+    ? t.io.map(([ty,sig])=>`<div class="iorow"><span class="chip ${ty}">${ty}</span><span class="sig">${sig}</span></div>`).join("")
+    : `<div class="io-none">No I/O — does not consume a PLC point.</div>`;
+  const rot=item.rot||0;
+  ins.innerHTML=`
+    <div class="insp-head"><div class="insp-type">${t.name}</div><div class="tag-edit"><input id="tagInput" class="mono" value="${item.tag}"></div></div>
+    <div class="insp-sec"><h3>Specifications</h3>${specHtml}</div>
+    <div class="insp-sec"><h3>Instrumentation <span class="io-count">${t.io.length} pt${t.io.length!==1?"s":""}</span></h3>${ioHtml}</div>
+    <div class="insp-sec"><h3>Placement &amp; wiring</h3>
+      <div class="field"><label>Rotate symbol</label><div class="rotseg">${[0,90,180,270].map(d=>`<button data-rot="${d}" class="${rot===d?"sel":""}">${d}°</button>`).join("")}</div></div>
+      <div class="field"><label>Connection to PLC</label><select id="connSel"><option ${item.connection!=="Fieldbus"?"selected":""}>Hardwired</option><option ${item.connection==="Fieldbus"?"selected":""}>Fieldbus</option></select></div>
+      <button class="btn" id="tplBtn" style="width:100%">Save as template</button>
+    </div>
+    <div class="insp-sec"><button class="del-btn" id="delBtn">Delete item</button></div>`;
+  ins.querySelector("#tagInput").addEventListener("input",e=>{item.tag=e.target.value;renderCanvas();scheduleSave();});
+  ins.querySelectorAll("[data-spec]").forEach(inp=>inp.addEventListener("input",e=>{item.specs[e.target.dataset.spec]=e.target.value;scheduleSave();}));
+  ins.querySelectorAll("[data-rot]").forEach(b=>b.onclick=()=>{item.rot=parseInt(b.dataset.rot);renderCanvas();renderInspector();scheduleSave();});
+  ins.querySelector("#connSel").onchange=e=>{item.connection=e.target.value;renderCanvas();scheduleSave();};
+  ins.querySelector("#tplBtn").onclick=()=>saveAsTemplate(item);
+  ins.querySelector("#delBtn").onclick=()=>deleteItem(item.id);
+}
+function renderWireInspector(ins){
+  const wi=ui.selectedWire,w=project.wires[wi];if(!w){ins.innerHTML="";return;}
+  ins.innerHTML=`
+    <div class="insp-head"><div class="insp-type">Pipe / line</div></div>
+    <div class="insp-sec"><div class="field"><label>Line number / label</label><input id="lineNo" class="mono" value="${w.label||""}" placeholder="e.g. 100-PW-001"></div></div>
+    <div class="insp-sec"><button class="del-btn" id="delWire">Delete pipe</button></div>`;
+  ins.querySelector("#lineNo").addEventListener("input",e=>{w.label=e.target.value;renderCanvas();scheduleSave();});
+  ins.querySelector("#delWire").onclick=()=>{project.wires.splice(wi,1);ui.selectedWire=null;renderCanvas();renderInspector();scheduleSave();};
+}
+function saveAsTemplate(item){
+  const t=getType(item.key);
+  const name=prompt("Template name:",t.name+" (template)");if(!name)return;
+  const key="cu_"+Date.now().toString(36);
+  const tpl={key,name,prefix:t.prefix,symbol:t.symbol,spec:t.spec,io:JSON.parse(JSON.stringify(t.io)),defaults:Object.assign({},item.specs)};
+  let cat=library.find(c=>c.cat==="My Templates");
+  if(!cat){cat={cat:"My Templates",items:[]};library.push(cat);}
+  cat.items.push(tpl);renderPalette();scheduleSave();
+  flashHint("Saved to library → My Templates");
+}
+function flashHint(msg){const h=document.getElementById("toolHint");const old=h.textContent;h.textContent=msg;h.style.color="var(--accent)";setTimeout(()=>{h.style.color="";setMode(ui.mode);},1800);}
+
+/* ===================== LEDGER ===================== */
+function tallyIO(){const c={DI:0,DO:0,AI:0,AO:0};project.items.forEach(it=>{const t=getType(it.key);if(t)t.io.forEach(([ty])=>c[ty]++);});return c;}
+function updateLedger(){const c=tallyIO();document.getElementById("ledger").innerHTML=IO_TYPES.map(ty=>`<div class="lg"><span class="dot" style="background:var(--${ty})"></span><span class="lbl">${ty}</span><span class="n mono">${c[ty]}</span></div>`).join("");}
+
+/* ===================== SMART I/O ===================== */
+function buildRows(){
+  const rows=[];
+  project.items.forEach(it=>{
+    const t=getType(it.key);if(!t)return;
+    t.io.forEach(([ty,sig],k)=>rows.push({rid:it.id+"#"+k,tag:it.tag,service:it.specs.service||"",equip:t.name,signal:sig,type:ty,fieldbus:it.connection==="Fieldbus"}));
+  });
+  return rows;
+}
+function assignIO(){
+  const rows=buildRows();
+  const hw=rows.filter(r=>!r.fieldbus),fb=rows.filter(r=>r.fieldbus);
+  const byType={DI:[],DO:[],AI:[],AO:[]};hw.forEach(r=>byType[r.type].push(r));
+  const cards=[],addr={};let slotIdx=0;const spr=project.hw.slotsPerRack||8;
+  IO_TYPES.forEach(type=>{
+    const cap=project.hw[type]||16,list=byType[type];
+    for(let i=0;i<list.length;i+=cap){
+      const chunk=list.slice(i,i+cap);
+      const rack=Math.floor(slotIdx/spr)+1,slot=(slotIdx%spr)+1;
+      chunk.forEach((r,ci)=>addr[r.rid]=`R${rack}·S${String(slot).padStart(2,"0")}·${String(ci).padStart(2,"0")}`);
+      cards.push({type,rack,slot,cap,used:chunk.length,points:chunk});slotIdx++;
+    }
+  });
+  return{rows,hw,fb,cards,addr};
+}
+function renderSchedule(){
+  const wrap=document.getElementById("schWrap");
+  const {rows,hw,fb,cards,addr}=assignIO();
+  if(rows.length===0){wrap.innerHTML=`<div class="sch-empty">No I/O yet. Add instrumented equipment in the Diagram tab and the schedule builds itself here.</div>`;return;}
+  const c=tallyIO(),total=c.DI+c.DO+c.AI+c.AO;
+  const racksUsed=cards.length?Math.max(...cards.map(cd=>cd.rack)):0;
+
+  const sumCards=IO_TYPES.map(ty=>`<div class="sum ${ty}"><div class="v mono">${c[ty]}</div><div class="k">${ty} · ${IO_LABEL[ty]}</div></div>`).join("")
+    +`<div class="sum total"><div class="v mono">${total}</div><div class="k">Total points</div><div class="sub">${fb.length} via fieldbus</div></div>`
+    +`<div class="sum cards"><div class="v mono">${cards.length}</div><div class="k">Cards · ${racksUsed} rack${racksUsed!==1?"s":""}</div></div>`;
+
+  // rack layout
+  const byRack={};cards.forEach(cd=>{(byRack[cd.rack]=byRack[cd.rack]||[]).push(cd);});
+  const spr=project.hw.slotsPerRack||8;
+  let racksHtml="";
+  Object.keys(byRack).sort((a,b)=>a-b).forEach(rk=>{
+    const list=byRack[rk].sort((a,b)=>a.slot-b.slot);const filled={};list.forEach(cd=>filled[cd.slot]=cd);
+    let slotsHtml="";
+    for(let s=1;s<=spr;s++){
+      const cd=filled[s];
+      slotsHtml+= cd
+        ? `<div class="card ${cd.type}"><div class="ch"></div><div class="cb"><div class="ct">${cd.type} card</div><div class="cs">slot ${String(cd.slot).padStart(2,"0")} · ${cd.cap} ch</div><div class="bar"><i style="width:${Math.round(cd.used/cd.cap*100)}%"></i></div><div class="free">${cd.used}/${cd.cap} used</div></div></div>`
+        : `<div class="empty-slot">S${String(s).padStart(2,"0")}<br>spare</div>`;
+    }
+    racksHtml+=`<div class="rack"><div class="rack-h">RACK ${rk}</div><div class="slots">${slotsHtml}</div></div>`;
+  });
+
+  const tableRows=rows.map(r=>`<tr><td class="mono">${r.tag}</td><td>${r.service||'<span style="color:var(--faint)">—</span>'}</td><td>${r.signal}</td><td><span class="chip ${r.type}">${r.type}</span></td><td><span class="addr ${r.fieldbus?"fb":""}">${r.fieldbus?"Fieldbus":addr[r.rid]}</span></td></tr>`).join("");
+
+  wrap.innerHTML=`
+    <div class="sum-cards">${sumCards}</div>
+    <div class="panel-card">
+      <div class="pc-head"><h3>PLC hardware</h3><span class="sub">channels per card drive the addressing below</span></div>
+      <div class="hw-ctrls">
+        ${IO_TYPES.map(ty=>`<div class="f"><span class="tag ${ty}">${ty}</span><input type="number" min="1" data-hw="${ty}" value="${project.hw[ty]}"> ch/card</div>`).join("")}
+        <div class="f">Slots / rack <input type="number" min="1" data-hw="slotsPerRack" value="${project.hw.slotsPerRack}"></div>
+      </div>
+      <div class="racks">${racksHtml||'<div class="sch-empty" style="padding:20px">All I/O is on fieldbus — no physical cards required.</div>'}</div>
+    </div>
+    <div class="panel-card">
+      <div class="pc-head"><h3>I/O schedule</h3><span class="sub">${rows.length} signals · auto-addressed</span></div>
+      <table><thead><tr><th>Tag</th><th>Service</th><th>Signal</th><th>I/O</th><th>Address</th></tr></thead><tbody>${tableRows}</tbody></table>
+    </div>`;
+  wrap.querySelectorAll("[data-hw]").forEach(inp=>inp.addEventListener("change",e=>{const k=e.target.dataset.hw;project.hw[k]=Math.max(1,parseInt(e.target.value)||1);renderSchedule();scheduleSave();}));
+}
+
+/* ===================== EXPORTS ===================== */
+function download(name,content,type){const b=new Blob([content],{type}),u=URL.createObjectURL(b),a=document.createElement("a");a.href=u;a.download=name;a.click();URL.revokeObjectURL(u);}
+function csvCell(s){s=(s==null?"":""+s);return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
+function exportIOcsv(){
+  const {rows,addr}=assignIO();
+  const head=["Tag","Service","Equipment","Signal","IO Type","Address / Connection"];
+  const lines=[head.join(",")].concat(rows.map(r=>[r.tag,r.service,r.equip,r.signal,r.type,r.fieldbus?"Fieldbus":addr[r.rid]].map(csvCell).join(",")));
+  download((project.name||"project")+"_IO_schedule.csv",lines.join("\n"),"text/csv");
+}
+function exportEquipCsv(){
+  const idx=libIndex();const head=["Tag","Type","Service","Connection"];
+  const lines=[head.join(",")].concat(project.items.map(it=>{const t=idx[it.key]||{name:it.key};return [it.tag,t.name,it.specs.service||"",it.connection||"Hardwired"].map(csvCell).join(",");}));
+  download((project.name||"project")+"_equipment_list.csv",lines.join("\n"),"text/csv");
+}
+function exportJSON(){download((project.name||"project")+".json",JSON.stringify(project,null,2),"application/json");}
+function exportLibrary(){
+  const custom=[];library.forEach(c=>{const ci=c.items.filter(i=>isCustom(i.key));if(ci.length)custom.push({cat:c.cat,items:ci});});
+  if(!custom.length){alert("No custom templates to export yet. Use “Save as template” or “+ Custom” first.");return;}
+  download("equipment_library.json",JSON.stringify(custom,null,2),"application/json");
+}
+document.getElementById("btnExportLib").onclick=exportLibrary;
+document.getElementById("btnImportLib").onclick=()=>document.getElementById("libFile").click();
+document.getElementById("libFile").addEventListener("change",e=>{
+  const f=e.target.files[0];if(!f)return;const rd=new FileReader();
+  rd.onload=()=>{try{mergeCustom(JSON.parse(rd.result));renderPalette();scheduleSave();flashHint("Library imported");}catch(err){alert("Could not read that library file.");}};
+  rd.readAsText(f);e.target.value="";
+});
+document.getElementById("btnExport").addEventListener("click",()=>{
+  const ex=document.getElementById("expMenu");if(ex){ex.remove();return;}
+  const m=document.createElement("div");m.id="expMenu";
+  m.style.cssText="position:absolute;top:50px;right:64px;background:var(--panel2);border:1px solid var(--line2);border-radius:9px;padding:6px;z-index:40;box-shadow:0 8px 30px rgba(0,0,0,.4)";
+  [["I/O schedule (CSV)",exportIOcsv],["Equipment list (CSV)",exportEquipCsv],["Project file (JSON)",exportJSON],["Equipment library (JSON)",exportLibrary]].forEach(([l,fn])=>{
+    const b=document.createElement("button");b.className="btn";b.style.cssText="display:block;width:210px;text-align:left;border:none;background:none;margin:1px 0";b.textContent=l;b.onclick=()=>{fn();m.remove();};m.appendChild(b);
+  });
+  document.body.appendChild(m);
+  setTimeout(()=>document.addEventListener("pointerdown",function h(ev){if(!m.contains(ev.target)){m.remove();document.removeEventListener("pointerdown",h);}}),0);
+});
+
+/* ===================== TOOLBAR / TABS ===================== */
+function setMode(m){
+  ui.mode=m;ui.pending=null;
+  document.getElementById("toolSelect").classList.toggle("on",m==="select");
+  document.getElementById("toolConnect").classList.toggle("on",m==="connect");
+  document.getElementById("toolHint").textContent=m==="connect"?"Connect mode: click two items to draw a pipe. Click a pipe to label or delete it.":"Click library items to place them. Drag to arrange, click a pipe to label it.";
+  document.getElementById("scroll").style.cursor=m==="connect"?"crosshair":"default";
+  renderCanvas();
+}
+document.getElementById("toolSelect").onclick=()=>setMode("select");
+document.getElementById("toolConnect").onclick=()=>setMode("connect");
+document.querySelectorAll(".tab").forEach(tab=>tab.onclick=()=>{
+  document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));tab.classList.add("active");
+  const v=tab.dataset.view;
+  document.getElementById("view-diagram").classList.toggle("active",v==="diagram");
+  document.getElementById("view-schedule").classList.toggle("active",v==="schedule");
+  if(v==="schedule")renderSchedule();
+});
+document.getElementById("projName").addEventListener("input",e=>{project.name=e.target.value;scheduleSave();});
+document.getElementById("btnNew").onclick=()=>{
+  if(project.items.length&&!confirm("Start a new project? The current diagram will be cleared (your library is kept)."))return;
+  project={name:"Untitled Project",items:[],wires:[],hw:project.hw};
+  document.getElementById("projName").value=project.name;ui.selected=null;ui.pending=null;ui.selectedWire=null;
+  renderCanvas();renderInspector();updateLedger();scheduleSave();
+};
+window.addEventListener("keydown",e=>{
+  const typing=["INPUT","SELECT","TEXTAREA"].includes(document.activeElement.tagName);
+  if((e.key==="Delete"||e.key==="Backspace")&&!typing){
+    if(ui.selected){deleteItem(ui.selected);}
+    else if(ui.selectedWire!==null){project.wires.splice(ui.selectedWire,1);ui.selectedWire=null;renderCanvas();renderInspector();scheduleSave();}
+  }
+});
+
+/* ===================== CUSTOM MODAL ===================== */
+const modal=document.getElementById("customModal");
+function fillSymbolOptions(){
+  document.getElementById("cuSymbol").innerHTML=Object.keys(SYMBOLS).map(s=>`<option value="${s}">${s}</option>`).join("");
+}
+function openCustom(editKey){
+  ui.editingKey=editKey||null;
+  document.getElementById("cuTitle").textContent=editKey?"Edit equipment type":"Add custom equipment type";
+  document.getElementById("cuIoList").innerHTML="";
+  if(editKey){
+    const t=getType(editKey);
+    document.getElementById("cuName").value=t.name;document.getElementById("cuPrefix").value=t.prefix;
+    document.getElementById("cuSymbol").value=t.symbol;document.getElementById("cuSpec").value=t.spec;
+    (t.io.length?t.io:[["DI",""]]).forEach(([ty,sig])=>addIoBuilderRow(ty,sig));
+  }else{
+    document.getElementById("cuName").value="";document.getElementById("cuPrefix").value="";
+    document.getElementById("cuSymbol").value="pump";document.getElementById("cuSpec").value="driven";
+    addIoBuilderRow();
+  }
+  modal.classList.add("show");
+}
+function closeCustom(){modal.classList.remove("show");ui.editingKey=null;}
+document.getElementById("btnAddCustom").onclick=()=>openCustom();
+document.getElementById("closeCustom").onclick=closeCustom;
+document.getElementById("cuCancel").onclick=closeCustom;
+document.getElementById("cuAddIo").onclick=()=>addIoBuilderRow();
+function addIoBuilderRow(ty="DI",sig=""){
+  const row=document.createElement("div");row.className="io-builder-row";
+  row.innerHTML=`<select>${IO_TYPES.map(t=>`<option ${t===ty?"selected":""}>${t}</option>`).join("")}</select><input placeholder="Signal description" value="${(sig+"").replace(/"/g,"&quot;")}"><button title="remove">✕</button>`;
+  row.querySelector("button").onclick=()=>row.remove();
+  document.getElementById("cuIoList").appendChild(row);
+}
+document.getElementById("cuSave").onclick=()=>{
+  const name=document.getElementById("cuName").value.trim();
+  if(!name){alert("Give the equipment a name.");return;}
+  const prefix=document.getElementById("cuPrefix").value.trim()||"X";
+  const io=[...document.querySelectorAll("#cuIoList .io-builder-row")].map(r=>{const ty=r.querySelector("select").value,sig=r.querySelector("input").value.trim();return sig?[ty,sig]:null;}).filter(Boolean);
+  const symbol=document.getElementById("cuSymbol").value,spec=document.getElementById("cuSpec").value;
+  if(ui.editingKey){
+    const t=getType(ui.editingKey);Object.assign(t,{name,prefix,symbol,spec,io});
+  }else{
+    const item={key:"cu_"+Date.now().toString(36),name,prefix,symbol,spec,io};
+    let cat=library.find(c=>c.cat==="Custom");if(!cat){cat={cat:"Custom",items:[]};library.push(cat);}cat.items.push(item);
+  }
+  renderPalette();renderCanvas();scheduleSave();closeCustom();
+};
+
+/* ===================== INIT ===================== */
+(async function init(){
+  fillSymbolOptions();
+  await loadSaved();
+  renderPalette();renderCanvas();renderInspector();updateLedger();setMode("select");
+})();
+</script>
+</body>
+</html>
